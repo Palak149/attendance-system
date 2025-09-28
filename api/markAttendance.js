@@ -10,18 +10,25 @@ module.exports = async function (req, res) {
   try {
     await connectDB();
 
-    // Parse body safely
+    // Log raw body for Render debugging
+    console.log("💡 Raw req.body:", req.body);
+
+    // Safely parse body
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    console.log("💡 Parsed body:", body);
+
     const { name, rollNo, className, subject, code } = body;
 
     // Validate input
     if (!name || !rollNo || !className || !subject || !code) {
+      console.log("⚠️ Missing field(s)");
       return res.status(400).json({ error: "All fields are required." });
     }
 
     // Check if code exists
     const codeRecord = await Code.findOne({ code, className, subject });
     if (!codeRecord) {
+      console.log("⚠️ Invalid attendance code:", code);
       return res.status(400).json({ error: "Invalid attendance code." });
     }
 
@@ -29,6 +36,7 @@ module.exports = async function (req, res) {
     const now = new Date();
     const createdAt = new Date(codeRecord.createdAt);
     if ((now - createdAt) / 1000 > 60) {
+      console.log("⚠️ Attendance code expired");
       return res.status(400).json({ error: "Attendance code expired." });
     }
 
@@ -40,6 +48,7 @@ module.exports = async function (req, res) {
       code,
     });
     if (alreadyMarked) {
+      console.log("⚠️ Attendance already submitted for:", rollNo);
       return res.status(400).json({ error: "Attendance already submitted." });
     }
 
@@ -50,10 +59,11 @@ module.exports = async function (req, res) {
       className,
       subject,
       code,
-      timestamp: now, // optional: explicit timestamp
+      timestamp: now,
     });
     await newAttendance.save();
 
+    console.log("✅ Attendance marked:", { name, rollNo, className, subject });
     res.status(200).json({ message: "Attendance marked successfully." });
   } catch (err) {
     console.error("❌ markAttendance error:", err);
