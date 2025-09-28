@@ -145,6 +145,7 @@
     } catch (err) { console.error(err); }
   });
 
+  // ✅ Fixed DownloadForm for mobile
   document.getElementById("downloadForm").addEventListener("submit", async e => {
     e.preventDefault();
     const className = (document.getElementById("classNameD").value || "").trim();
@@ -153,8 +154,8 @@
 
     const params = new URLSearchParams({className, subject, date});
 
-    // Preview
     try {
+      // Preview records
       const previewRes = await fetch("/api/attendancePreview?" + params);
       const records = await previewRes.json().catch(() => []);
       const tbody = document.querySelector("#attendanceTable tbody");
@@ -171,22 +172,16 @@
           </tr>`).join("");
       }
 
-      // Download Excel
-      const downloadRes = await fetch("/api/download?" + params);
-      const blob = await downloadRes.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "attendance.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      // ✅ Force download via browser (works on mobile too)
+      window.location.href = "/api/download?" + params;
 
-    } catch(err) { console.error(err); }
+    } catch(err) {
+      console.error(err);
+      alert("Failed to download attendance.");
+    }
   });
 
-  // Student JS – Render-proof
+  // Student JS
   document.getElementById("attendanceForm").addEventListener("submit", async e => {
     e.preventDefault();
     const name = (document.getElementById("name").value || "").trim();
