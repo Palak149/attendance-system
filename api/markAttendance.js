@@ -10,60 +10,39 @@ module.exports = async function (req, res) {
   try {
     await connectDB();
 
-    // Log raw body for Render debugging
-    console.log("💡 Raw req.body:", req.body);
-
-    // Safely parse body
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    console.log("💡 Parsed body:", body);
+    const { name, rollNo, className, subject, code } = body || {};
 
-    const { name, rollNo, className, subject, code } = body;
-
-    // Validate input
-    if (!name || !rollNo || !className || !subject || !code) {
-      console.log("⚠️ Missing field(s)");
+    if (![name, rollNo, className, subject, code].every(v => v && v.toString().trim() !== "")) {
       return res.status(400).json({ error: "All fields are required." });
     }
 
-    // Check if code exists
-    const codeRecord = await Code.findOne({ code, className, subject });
-    if (!codeRecord) {
-      console.log("⚠️ Invalid attendance code:", code);
-      return res.status(400).json({ error: "Invalid attendance code." });
-    }
+    const codeRecord = await Code.findOne({ code: code.trim(), className: className.trim(), subject: subject.trim() });
+    if (!codeRecord) return res.status(400).json({ error: "Invalid attendance code." });
 
-    // Check if code expired (1 minute)
+    // ✅ 5 minutes = 300 seconds
     const now = new Date();
     const createdAt = new Date(codeRecord.createdAt);
-    if ((now - createdAt) / 1000 > 60) {
-      console.log("⚠️ Attendance code expired");
-      return res.status(400).json({ error: "Attendance code expired." });
-    }
+    if ((now - createdAt) / 1000 > 300) return res.status(400).json({ error: "Attendance code expired." });
 
-    // Check if already marked
     const alreadyMarked = await Attendance.findOne({
-      rollNo,
-      className,
-      subject,
-      code,
+      rollNo: rollNo.trim(),
+      className: className.trim(),
+      subject: subject.trim(),
+      code: code.trim()
     });
-    if (alreadyMarked) {
-      console.log("⚠️ Attendance already submitted for:", rollNo);
-      return res.status(400).json({ error: "Attendance already submitted." });
-    }
+    if (alreadyMarked) return res.status(400).json({ error: "Attendance already submitted." });
 
-    // Save attendance
     const newAttendance = new Attendance({
-      name,
-      rollNo,
-      className,
-      subject,
-      code,
-      timestamp: now,
+      name: name.trim(),
+      rollNo: rollNo.trim(),
+      className: className.trim(),
+      subject: subject.trim(),
+      code: code.trim(),
+      timestamp: now
     });
     await newAttendance.save();
 
-    console.log("✅ Attendance marked:", { name, rollNo, className, subject });
     res.status(200).json({ message: "Attendance marked successfully." });
   } catch (err) {
     console.error("❌ markAttendance error:", err);
